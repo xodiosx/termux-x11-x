@@ -4,24 +4,19 @@ import static android.system.Os.getuid;
 import static android.system.Os.getenv;
 
 import android.annotation.SuppressLint;
-import android.app.IActivityManager;
-import android.app.PendingIntent;
 import android.content.Context;
-import android.content.IIntentReceiver;
-import android.content.IIntentSender;
 import android.content.Intent;
-import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
-import android.os.RemoteException;
 import android.util.Log;
 import android.view.Surface;
 
 import androidx.annotation.Keep;
+
+import com.termux.x11.BuildConfig;
 
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -46,8 +41,15 @@ public class CmdEntryPoint extends ICmdEntryInterface.Stub {
     }
 
     CmdEntryPoint(String[] args) {
-        if (!start(args))
-            System.exit(1);
+        if (!start(args)) {
+            Log.e("CmdEntryPoint", "native start() failed (args=" + java.util.Arrays.toString(args) + ")");
+            // Termux in `app_process` expects process death; in xodos2 the same process runs the
+            // Activity — System.exit(1) kills the app and the OS restarts it → apparent hang / log spam.
+            if (!"com.termux.x11".equals(BuildConfig.APPLICATION_ID)) {
+                System.exit(1);
+            }
+            return;
+        }
 
         spawnListeningThread();
         sendBroadcastDelayed();
@@ -78,49 +80,14 @@ public class CmdEntryPoint extends ICmdEntryInterface.Stub {
     }
 
     static void sendBroadcast(Intent intent) {
+        if (ctx == null) {
+            Log.e("Broadcast", "Context is null; cannot send " + intent.getAction());
+            return;
+        }
         try {
             ctx.sendBroadcast(intent);
         } catch (Exception e) {
-            if (e instanceof NullPointerException && ctx == null)
-                Log.i("Broadcast", "Context is null, falling back to manual broadcasting");
-            else
-                Log.e("Broadcast", "Falling back to manual broadcasting, failed to broadcast intent through Context:", e);
-
-            String packageName;
-            try {
-                packageName = android.app.ActivityThread.getPackageManager().getPackagesForUid(getuid())[0];
-            } catch (RemoteException ex) {
-                throw new RuntimeException(ex);
-            }
-            IActivityManager am;
-            try {
-                //noinspection JavaReflectionMemberAccess
-                am = (IActivityManager) android.app.ActivityManager.class
-                        .getMethod("getService")
-                        .invoke(null);
-            } catch (Exception e2) {
-                try {
-                    am = (IActivityManager) Class.forName("android.app.ActivityManagerNative")
-                            .getMethod("getDefault")
-                            .invoke(null);
-                } catch (Exception e3) {
-                    throw new RuntimeException(e3);
-                }
-            }
-
-            assert am != null;
-            IIntentSender sender = am.getIntentSender(1, packageName, null, null, 0, new Intent[] { intent },
-                    null, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_ONE_SHOT, null, 0);
-            try {
-                //noinspection JavaReflectionMemberAccess
-                IIntentSender.class
-                        .getMethod("send", int.class, Intent.class, String.class, IBinder.class, IIntentReceiver.class, String.class, Bundle.class)
-                        .invoke(sender, 0, intent, null, null, new IIntentReceiver.Stub() {
-                            @Override public void performReceive(Intent i, int r, String d, Bundle e, boolean o, boolean s, int a) {}
-                        }, null, null);
-            } catch (Exception ex) {
-                throw new RuntimeException(ex);
-            }
+            Log.e("Broadcast", "sendBroadcast failed for " + intent.getAction(), e);
         }
     }
 
@@ -149,15 +116,16 @@ public class CmdEntryPoint extends ICmdEntryInterface.Stub {
             // Hiding harmless framework errors, like this:
             // java.io.FileNotFoundException: /data/system/theme_config/theme_compatibility.xml: open failed: ENOENT (No such file or directory)
             System.setErr(new PrintStream(new OutputStream() { public void write(int arg0) {} }));
+            Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
+            Object activityThread;
             if (System.getenv("OLD_CONTEXT") != null) {
-                context = android.app.ActivityThread.systemMain().getSystemContext();
+                activityThread = activityThreadClass.getMethod("systemMain").invoke(null);
             } else {
-                context = ((android.app.ActivityThread) Class.
-                        forName("sun.misc.Unsafe").
-                        getMethod("allocateInstance", Class.class).
-                        invoke(unsafe, android.app.ActivityThread.class))
-                        .getSystemContext();
+                activityThread = Class.forName("sun.misc.Unsafe")
+                        .getMethod("allocateInstance", Class.class)
+                        .invoke(unsafe, activityThreadClass);
             }
+            context = (Context) activityThreadClass.getMethod("getSystemContext").invoke(activityThread);
         } catch (Exception e) {
             Log.e("Context", "Failed to instantiate context:", e);
             context = null;
@@ -180,26 +148,40 @@ public class CmdEntryPoint extends ICmdEntryInterface.Stub {
         } catch (Exception e) {
             Log.e("CmdEntryPoint", "Something went wrong when preparing MainLooper", e);
         }
-        handler = new Handler();
+        // In-process: class may be first loaded on a worker after Looper.prepare(); in Termux: same.
+        // `new Handler()` with no arg requires a Looper on the current thread — fall back to main.
+        {
+            Looper l = Looper.myLooper();
+            if (l != null) {
+                handler = new Handler(l);
+            } else {
+                handler = new Handler(Looper.getMainLooper());
+            }
+        }
         ctx = createContext();
 
-        String path = "lib/" + Build.SUPPORTED_ABIS[0] + "/libXlorie.so";
-        ClassLoader loader = CmdEntryPoint.class.getClassLoader();
-        URL res = loader != null ? loader.getResource(path) : null;
-        String libPath = res != null ? res.getFile().replace("file:", "") : null;
-        if (libPath != null) {
-            try {
-                System.load(libPath);
-            } catch (Exception e) {
-                Log.e("CmdEntryPoint", "Failed to dlopen " + libPath, e);
-                System.err.println("Failed to load native library. Did you install the right apk? Try the universal one.");
+        // Standard Android (jniLibs in APK): always use loadLibrary — same as [com.termux.x11.X11Runtime].
+        // The Termux getResource+System.load("...base.apk!/lib/...") path often fails on modern Android
+        // (dlopen from zip path), so it must be fallback only, not first.
+        try {
+            System.loadLibrary("Xlorie");
+        } catch (UnsatisfiedLinkError first) {
+            String subPath = "lib/" + Build.SUPPORTED_ABIS[0] + "/libXlorie.so";
+            ClassLoader loader = CmdEntryPoint.class.getClassLoader();
+            URL res = loader != null ? loader.getResource(subPath) : null;
+            String libPath = res != null ? res.getFile().replace("file:", "") : null;
+            if (libPath == null) {
+                Log.e("CmdEntryPoint", "Failed to load libXlorie (no ClassLoader path)", first);
+                System.err.println("Failed to acquire native library (libXlorie).");
                 System.exit(134);
-            }
-        } else {
-            // It is critical only when it is not running in Android application process
-            if (MainActivity.getInstance() == null) {
-                System.err.println("Failed to acquire native library. Did you install the right apk? Try the universal one.");
-                System.exit(134);
+            } else {
+                try {
+                    System.load(libPath);
+                } catch (UnsatisfiedLinkError | Exception e) {
+                    Log.e("CmdEntryPoint", "Failed to dlopen " + libPath, e);
+                    System.err.println("Failed to load native library. Did you install the right apk? Try the universal one.");
+                    System.exit(134);
+                }
             }
         }
     }

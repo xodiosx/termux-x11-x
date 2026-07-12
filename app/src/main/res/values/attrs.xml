@@ -4,4 +4,7 @@
     <attr name="extraKeysButtonActiveTextColor" format="reference" />
     <attr name="extraKeysButtonBackgroundColor" format="reference" />
     <attr name="extraKeysButtonActiveBackgroundColor" format="reference" />
+        <declare-styleable name="ImagePickerView">
+        <attr name="activityTypeCode" format="integer" />
+    </declare-styleable>
 </resources>

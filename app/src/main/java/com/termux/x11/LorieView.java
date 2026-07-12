@@ -1,5 +1,20 @@
 package com.termux.x11;
 
+////////
+import android.view.MotionEvent;
+import android.view.InputDevice;
+//import android.widget.Toast;
+import static android.view.InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+import static android.view.KeyEvent.KEYCODE_BACK;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import android.view.InputDevice;
+import com.termux.x11.controller.core.CursorLocker;
+import com.termux.x11.controller.winhandler.WinHandler;
+import com.termux.x11.controller.xserver.InputDeviceManager;
+import com.termux.x11.controller.xserver.Keyboard;
+import com.termux.x11.controller.xserver.Pointer;
+import com.termux.x11.controller.xserver.XKeycode;
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ClipData;
@@ -335,6 +350,58 @@ class InputConnectionWrapper implements InputConnection {
 @SuppressWarnings("deprecation")
 public class LorieView extends SurfaceView implements InputStub {
     private static int rendererZoom = 100;
+    
+    public final Keyboard keyboard = Keyboard.createKeyboard(this);
+    public final Pointer pointer = new Pointer(this);
+    final public InputDeviceManager inputDeviceManager = new InputDeviceManager(this);
+    public ScreenInfo screenInfo;
+    public CursorLocker cursorLocker;
+    public WinHandler winHandler;
+
+    public void setWinHandler(WinHandler handler) {
+        this.winHandler = handler;
+    }
+
+    public WinHandler getWinHandler() {
+        return winHandler;
+    }
+
+
+
+
+// In LorieView.java
+
+@Override
+public boolean onGenericMotionEvent(MotionEvent event) {
+    if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
+        float vScroll = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
+        float hScroll = event.getAxisValue(MotionEvent.AXIS_HSCROLL);
+
+        if (vScroll != 0 || hScroll != 0) {
+            if (vScroll > 0) {
+                injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_UP);
+                injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_UP);
+            } else if (vScroll < 0) {
+                injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_DOWN);
+                injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_DOWN);
+            }
+
+            if (hScroll > 0) {
+                injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_CLICK_RIGHT);
+                injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_CLICK_RIGHT);
+            } else if (hScroll < 0) {
+                injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_CLICK_LEFT);
+                injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_CLICK_LEFT);
+            }
+
+            return true;
+        }
+    }
+
+    return super.onGenericMotionEvent(event);
+}
+
+
 
     public interface Callback {
         void inputTransformChanged(int screenWidth, int screenHeight, Matrix inputTransform);
@@ -350,7 +417,7 @@ public class LorieView extends SurfaceView implements InputStub {
     private static boolean hardwareKbdScancodesWorkaround = false;
     private final InputMethodManager mIMM = (InputMethodManager)getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
     private Callback mCallback;
-    private final Point p = new Point();
+     final Point p = new Point();
     private final Rect contentInsets = new Rect();
     private final Rect viewport = new Rect();
     private final Rect inputViewport = new Rect();
@@ -593,7 +660,8 @@ public class LorieView extends SurfaceView implements InputStub {
         getHolder().addCallback(mSurfaceCallback);
         clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
         nativeInit();
-
+        screenInfo = new ScreenInfo(this);
+        cursorLocker = new CursorLocker(this);
         setFocusable(true);
         setFocusableInTouchMode(true);
 
@@ -806,13 +874,55 @@ public class LorieView extends SurfaceView implements InputStub {
     ClipboardManager.OnPrimaryClipChangedListener clipboardListener = this::handleClipboardChange;
 
     public void reloadPreferences(Prefs p) {
-        String filtering = p.displayFilteringMode.get();
+        String filtering = "nearest";
         setFiltering("nearest".equals(filtering) ? GLES20.GL_NEAREST : GLES20.GL_LINEAR);
         hardwareKbdScancodesWorkaround = p.hardwareKbdScancodesWorkaround.get();
         clipboardSyncEnabled = p.clipboardEnable.get();
         setClipboardSyncEnabled(clipboardSyncEnabled, clipboardSyncEnabled);
         TouchInputHandler.refreshInputDevices();
     }
+
+///  touch controls 
+public void injectPointerMove(int x, int y) {
+    pointer.moveTo(x, y);
+}
+
+public void injectPointerMoveDelta(int dx, int dy) {
+    pointer.moveDelta(dx, dy);
+}
+
+public void injectPointerButtonPress(Pointer.Button buttonCode) {
+    pointer.setButton(buttonCode, true);
+}
+
+public void injectPointerButtonRelease(Pointer.Button buttonCode) {
+    pointer.setButton(buttonCode, false);
+}
+
+public void injectKeyPress(XKeycode xKeycode) {
+    injectKeyPress(xKeycode, 0);
+}
+
+public void injectKeyPress(XKeycode xKeycode, int keysym) {
+    keyboard.setKeyPress(xKeycode.id, keysym);
+}
+
+public void injectKeyRelease(XKeycode xKeycode) {
+    keyboard.setKeyRelease(xKeycode.id);
+}
+
+public void injectText(String text) {
+    if (text.isEmpty()) return;
+    sendTextEvent(text.getBytes());
+}
+
+public boolean isFullscreen() {
+    return MainActivity.getPrefs().fullscreen.get();
+}
+
+public void regenerate() {
+    updateViewport();
+}
 
     // It is used in native code
     void setClipboardText(String text) {

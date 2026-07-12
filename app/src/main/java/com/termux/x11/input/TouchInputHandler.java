@@ -832,7 +832,7 @@ public class TouchInputHandler {
 
             if (e.getScanCode() == KEY_BACK && e.getDevice().getKeyboardType() != KEYBOARD_TYPE_ALPHABETIC || e.getScanCode() == 0) {
                 backButtonAction.accept(k, e.getAction() == KeyEvent.ACTION_DOWN);
-                return true;
+                return false;
             }
         }
 
