@@ -21,3 +21,7 @@
 -keepclassmembers class * extends android.preference.Preference {
     void onSetInitialValue(boolean, java.lang.Object);
 }
+
+-keepclassmembers class com.termux.x11.** {
+    static final java.lang.String *;
+}

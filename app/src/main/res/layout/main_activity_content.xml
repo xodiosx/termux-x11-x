@@ -49,12 +49,13 @@
                 android:layout_height="match_parent">
                 
                 <ImageView
-                    android:id="@+id/x11_image"
-                    android:layout_width="260.0dip"
-                    android:layout_height="200.0dip"
-                    android:src="@drawable/x_icon"
-                    android:scaleType="fitCenter"
-                    android:contentDescription="X Logo" />
+                android:id="@+id/x11_image"
+                android:layout_width="130dp"
+                android:layout_height="130dp"
+                android:scaleType="fitCenter"
+                app:srcCompat="@drawable/ic_x11_icon"
+                android:contentDescription="X Logo"
+                tools:ignore="HardcodedText" />
                     
                 <Space
                     android:layout_width="match_parent"
@@ -68,7 +69,7 @@
                     android:id="@+id/textView"
                     android:layout_width="match_parent"
  android:layout_height="wrap_content"
-                    android:text="By XOD M.Aleiwi" />
+                    android:text="forked by xodiosx M.Aleiwi" />
                     
                 <Space
                     android:layout_width="match_parent"
