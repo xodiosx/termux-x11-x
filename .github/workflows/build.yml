@@ -1,115 +1,101 @@
-name: Build Apk release 
+name: Build Debug APKs To Release
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - master
-    paths-ignore:
-      - '**.md'
-      - 'img/**'
-  pull_request:
-    branches:
-      - master
-    paths-ignore:
-      - '**.md'
-      - 'img/**'
 
-permissions:
-  contents: write
-  
 jobs:
   build:
-    name: "Build"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package_variant: [apt-android-7]
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
-    - name: Clone repository
-      uses: actions/checkout@v6
-      with:
-        submodules: recursive
-        fetch-depth: 1
-    - name: Validation
-      uses: gradle/actions/wrapper-validation@v5
-      
-    - name: Java setup
-      uses: actions/setup-java@v5
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-        
-    - name: Restore cache
-      uses: actions/cache@v4
-      with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Make Gradle Wrapper executable
+        run: chmod +x ./gradlew
 
-    - name: Build
-      run: ./gradlew assembleDebug
-    - name: Build companion package
-      run: ./build_termux_package
-    - name: Store app-arm64-v8a-debug
-      uses: actions/upload-artifact@v5
-      with:
-        name: termux-x11-arm64-v8a-debug
-        path: ./app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
-    
-    - name: Store app-armeabi-v7a-debug
-      uses: actions/upload-artifact@v5
-      with:
-        name: termux-x11-armeabi-v7a-debug
-        path: ./app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
-    
-    - name: Store app-universal-debug
-      uses: actions/upload-artifact@v5
-      with:
-        name: termux-x11-universal-debug
-        path: ./app/build/outputs/apk/debug/app-universal-debug.apk
-    
-    - name: Store app-x86_64-debug
-      uses: actions/upload-artifact@v5
-      with:
-        name: termux-x11-x86_64-debug
-        path: ./app/build/outputs/apk/debug/app-x86_64-debug.apk
-    
-    - name: Store app-x86-debug
-      uses: actions/upload-artifact@v5
-      with:
-        name: termux-x11-x86-debug
-        path: ./app/build/outputs/apk/debug/app-x86-debug.apk
-    
-    - name: Store companion package
-      uses: actions/upload-artifact@v5
-      with:
-        name: termux-companion packages
-        path: |
-          ./app/build/outputs/apk/debug/termux-x11-*-all.deb
-          ./app/build/outputs/apk/debug/termux-x11-*-any.pkg.tar.xz
-        
-    - name: Store unstripped libraries with debug symbols
-      uses: actions/upload-artifact@v5
-      with:
-        name: termux-x11-unstripped-libraries-for-ndk-stack
-        path: ./app/build/intermediates/cxx/Debug/*
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
-    - name: Update Nightly Release
-      uses: andelf/nightly-release@main
-      if: github.repository == 'xodiosx/termux-x11-xodmod' && github.ref == 'refs/heads/master'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: nightly
-        name: 'Nightly Release $$'
-        draft: false
-        prerelease: false
-        body: |
-          This is a nightly release of the termux-x11 app.
-          Based on ${{ github.sha }}
-        files: |
-          ./app/build/outputs/apk/debug/app-*-debug.apk
-          ./app/build/outputs/apk/debug/termux-x11-*-all.deb
-          ./app/build/outputs/apk/debug/termux-x11-*-any.pkg.tar.xz
+      - name: Read VERSION_NAME from gradle.properties
+        shell: bash
+        run: |
+          VERSION_NAME=$(grep -E '^VERSION_NAME=' gradle.properties | cut -d'=' -f2)
+
+          if [ -z "$VERSION_NAME" ]; then
+            echo "::error::VERSION_NAME not found in gradle.properties"
+            exit 1
+          fi
+
+          RELEASE_VERSION_NAME="v${VERSION_NAME}+${GITHUB_SHA:0:7}"
+          APK_VERSION_TAG="${RELEASE_VERSION_NAME}+${{ matrix.package_variant }}-github-debug"
+
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "RELEASE_VERSION_NAME=$RELEASE_VERSION_NAME" >> $GITHUB_ENV
+          echo "APK_VERSION_TAG=$APK_VERSION_TAG" >> $GITHUB_ENV
+
+          echo "Version       : $VERSION_NAME"
+          echo "Release Tag   : $RELEASE_VERSION_NAME"
+          echo "APK Tag       : $APK_VERSION_TAG"
+
+      - name: Build Debug APK
+        run: |
+          echo "Building APKs for $APK_VERSION_TAG"
+          ./gradlew assembleDebug
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apks-${{ matrix.package_variant }}
+          path: app/build/outputs/apk/debug/*.apk
+
+  upload:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read VERSION_NAME from gradle.properties
+        id: get_version
+        shell: bash
+        run: |
+          VERSION_NAME=$(grep -E '^VERSION_NAME=' gradle.properties | cut -d'=' -f2)
+          RELEASE_VERSION_NAME="v${VERSION_NAME}+${GITHUB_SHA:0:7}"
+          echo "release_version=$RELEASE_VERSION_NAME" >> $GITHUB_OUTPUT
+
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Verify APKs
+        run: |
+          echo "Downloaded APKs:"
+          find artifacts -type f -name '*.apk' -print
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.release_version }}
+          name: Release ${{ steps.get_version.outputs.release_version }}
+          files: artifacts/**/*.apk
+          generate_release_notes: true
+          prerelease: true
+          fail_on_unmatched_files: false
