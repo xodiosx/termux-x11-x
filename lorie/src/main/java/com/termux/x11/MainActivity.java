@@ -1458,7 +1458,7 @@ protected boolean isSettingsActivity() {
     private void setTerminalToolbarView() {
         final ViewPager pager = getTerminalToolbarViewPager();
             if (pager == null) {
-l        return;
+        return;
     }
         ViewGroup parent = (ViewGroup) pager.getParent();
 
