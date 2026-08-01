@@ -89,7 +89,7 @@ import android.os.Process;
 import java.util.concurrent.Executors;
 import android.graphics.Color;
 import com.termux.x11.utils.SamsungDexUtils;
-import acom.termux.x11.R;
+import com.termux.x11.R;
 
 
 
