@@ -46,6 +46,37 @@
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
+                   <!-- ================= CONTROLLER ACTIVITIES ================= -->
+
+        <activity
+            android:name="com.termux.x11.controller.ControlsEditorActivity"
+            android:exported="false"
+            
+            android:screenOrientation="sensor"
+            android:theme="@style/AppTheme"/>
+
+        <activity
+            android:name="com.termux.x11.controller.ExternalControllerBindingsActivity"
+            android:exported="false"
+            
+            android:screenOrientation="sensor"
+            android:theme="@style/AppTheme"/>
+
+        <activity
+            android:name="com.termux.x11.controller.InputControllerActivity"
+            android:exported="false"
+            
+            android:screenOrientation="sensor"
+            android:theme="@style/AppTheme"/>
+
+                <!-- ================= HUD SERVICE ================= -->
+
+        <service
+            android:name="com.termux.x11.HudService"
+            android:enabled="true"
+            
+            android:exported="false"/>
+            
 	    <meta-data android:name="android.allow_multiple_resumed_activities" android:value="true" />
 
         <service android:name=".utils.KeyInterceptor"
