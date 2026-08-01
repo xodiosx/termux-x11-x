@@ -1457,6 +1457,9 @@ protected boolean isSettingsActivity() {
 
     private void setTerminalToolbarView() {
         final ViewPager pager = getTerminalToolbarViewPager();
+            if (pager == null) {
+l        return;
+    }
         ViewGroup parent = (ViewGroup) pager.getParent();
 
         boolean showNow = !isInPictureInPictureMode && LorieView.connected() && prefs.showAdditionalKbd.get() && prefs.additionalKbdVisible.get();

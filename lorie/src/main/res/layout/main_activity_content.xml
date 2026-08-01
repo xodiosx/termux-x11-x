@@ -265,7 +265,7 @@
         
         <androidx.viewpager.widget.ViewPager
             android:layout_gravity="bottom|center"
-            android:id="@+id/display_terminal_toolbar_view_pager"
+            android:id="@+id/terminal_toolbar_view_pager"
             android:background="@android:color/black"
             android:visibility="gone"
             android:layout_width="match_parent"
