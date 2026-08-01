@@ -1,0 +1,162 @@
+name: Build to release 
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release tag (e.g., v1.2.3) – leave empty to use auto-generated date tag'
+        required: false
+        default: ''
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'              # triggers a versioned release
+    paths-ignore:
+      - '**.md'
+      - 'img/**'
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - '**.md'
+      - 'img/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: "Build"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v6
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Validation
+      uses: gradle/actions/wrapper-validation@v5
+
+    - name: Java setup
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Restore cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Build
+      run: ./gradlew assembleDebug
+
+    - name: Build companion package
+      run: ./build_termux_package
+
+    # ------------------------------------------------------------
+    # Upload all artifacts
+    # ------------------------------------------------------------
+    - name: Store app-arm64-v8a-debug
+      uses: actions/upload-artifact@v5
+      with:
+        name: termux-x11-arm64-v8a-debug
+        path: ./app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+
+    - name: Store app-armeabi-v7a-debug
+      uses: actions/upload-artifact@v5
+      with:
+        name: termux-x11-armeabi-v7a-debug
+        path: ./app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
+
+    - name: Store app-universal-debug
+      uses: actions/upload-artifact@v5
+      with:
+        name: termux-x11-universal-debug
+        path: ./app/build/outputs/apk/debug/app-universal-debug.apk
+
+    - name: Store app-x86_64-debug
+      uses: actions/upload-artifact@v5
+      with:
+        name: termux-x11-x86_64-debug
+        path: ./app/build/outputs/apk/debug/app-x86_64-debug.apk
+
+    - name: Store app-x86-debug
+      uses: actions/upload-artifact@v5
+      with:
+        name: termux-x11-x86-debug
+        path: ./app/build/outputs/apk/debug/app-x86-debug.apk
+
+    - name: Store companion packages
+      uses: actions/upload-artifact@v5
+      with:
+        name: termux-companion-packages
+        path: |
+          ./app/build/outputs/apk/debug/termux-x11-*-all.deb
+          ./app/build/outputs/apk/debug/termux-x11-*-any.pkg.tar.xz
+
+    - name: Store unstripped libraries with debug symbols
+      uses: actions/upload-artifact@v5
+      with:
+        name: termux-x11-unstripped-libraries-for-ndk-stack
+        path: ./app/build/intermediates/cxx/Debug/*
+
+    # ------------------------------------------------------------
+    # (Optional) Nightly release – keep if you want a separate "nightly" tag
+    # ------------------------------------------------------------
+    - name: Update Nightly Release
+      uses: andelf/nightly-release@main
+      if: github.repository == 'xodiosx/termux-x11-xodmod' && github.ref == 'refs/heads/master'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: nightly
+        name: 'Nightly Release $$'
+        draft: false
+        prerelease: false
+        body: |
+          This is a nightly release of the termux-x11 app.
+          Based on ${{ github.sha }}
+        files: |
+          ./app/build/outputs/apk/debug/app-*-debug.apk
+          ./app/build/outputs/apk/debug/termux-x11-*-all.deb
+          ./app/build/outputs/apk/debug/termux-x11-*-any.pkg.tar.xz
+
+    # ------------------------------------------------------------
+    # MAIN RELEASE: always creates/updates a release with a tag
+    # ------------------------------------------------------------
+    - name: Determine release tag
+      id: get_tag
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.release_version }}" ]; then
+          echo "tag=${{ github.event.inputs.release_version }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        else
+          # For master pushes: use current date (YYYY-MM-DD)
+          echo "tag=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.get_tag.outputs.tag }}
+        name: Release ${{ steps.get_tag.outputs.tag }}
+        draft: false
+        prerelease: false          # set to true if you prefer pre‑release
+        generate_release_notes: true
+        overwrite: true            # updates the same date tag on multiple pushes per day
+        fail_on_unmatched_files: false
+        files: |
+          ./app/build/outputs/apk/debug/app-*-debug.apk
+          ./app/build/outputs/apk/debug/termux-x11-*-all.deb
+          ./app/build/outputs/apk/debug/termux-x11-*-any.pkg.tar.xz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
