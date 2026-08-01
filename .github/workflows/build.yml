@@ -68,31 +68,31 @@ jobs:
       uses: actions/upload-artifact@v5
       with:
         name: termux-x11-arm64-v8a-debug
-        path: ./lorie-app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+        path: ./lorie-app/build/outputs/apk/debug/*-arm64-v8a-debug.apk
 
     - name: Store app-armeabi-v7a-debug
       uses: actions/upload-artifact@v5
       with:
         name: termux-x11-armeabi-v7a-debug
-        path: ./lorie-app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
+        path: ./lorie-app/build/outputs/apk/debug/*-armeabi-v7a-debug.apk
 
     - name: Store app-universal-debug
       uses: actions/upload-artifact@v5
       with:
         name: termux-x11-universal-debug
-        path: ./lorie-app/build/outputs/apk/debug/app-universal-debug.apk
+        path: ./lorie-app/build/outputs/apk/debug/*-universal-debug.apk
 
     - name: Store app-x86_64-debug
       uses: actions/upload-artifact@v5
       with:
         name: termux-x11-x86_64-debug
-        path: ./lorie-app/build/outputs/apk/debug/app-x86_64-debug.apk
+        path: ./lorie-app/build/outputs/apk/debug/*-x86_64-debug.apk
 
     - name: Store app-x86-debug
       uses: actions/upload-artifact@v5
       with:
         name: termux-x11-x86-debug
-        path: ./lorie-app/build/outputs/apk/debug/app-x86-debug.apk
+        path: ./lorie-app/build/outputs/apk/debug/*-x86-debug.apk
 
     - name: Store companion packages
       uses: actions/upload-artifact@v5
@@ -125,7 +125,7 @@ jobs:
           This is a nightly release of the termux-x11 app.
           Based on ${{ github.sha }}
         files: |
-          ./lorie-app/build/outputs/apk/debug/app-*-debug.apk
+          ./lorie-app/build/outputs/apk/debug/*-debug.apk
           ./lorie-app/build/outputs/apk/debug/termux-x11-*-all.deb
           ./lorie-app/build/outputs/apk/debug/termux-x11-*-any.pkg.tar.xz
 
