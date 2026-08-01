@@ -1,5 +1,29 @@
 package com.termux.x11;
 
+//// new 
+import android.app.Activity;
+import android.widget.CheckBox;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
+
+import com.termux.x11.controller.contentdialog.ContentDialog;
+import com.termux.x11.controller.InputControllerActivity;
+import com.termux.x11.controller.core.Callback;
+import com.termux.x11.controller.core.DownloadProgressDialog;
+import com.termux.x11.controller.inputcontrols.ControlsProfile;
+import com.termux.x11.controller.inputcontrols.InputControlsManager;
+import com.termux.x11.controller.widget.InputControlsView;
+import com.termux.x11.controller.widget.TouchpadView;
+import com.termux.x11.controller.winhandler.ProcessInfo;
+import com.termux.x11.controller.winhandler.WinHandler;
+
+import java.util.List;
+
+// *** Replace the existing R/BuildConfig references with these ***
+import app.xodos2.R;
+import app.xodos2.BuildConfig;
+
+
 import static android.Manifest.permission.POST_NOTIFICATIONS;
 import static android.Manifest.permission.WRITE_SECURE_SETTINGS;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
@@ -121,24 +145,65 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
         });
     }
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        prefs = new Prefs(this);
-        getSupportFragmentManager().beginTransaction().replace(android.R.id.content, new LoriePreferenceFragment(null)).commit();
 
+/// new
+protected LorieView xServer;
+protected InputControlsManager inputControlsManager;
+protected InputControlsView inputControlsView;
+protected TouchpadView touchpadView;
+protected WinHandler winHandler;
+protected float globalCursorSpeed = 1.0f;
+protected TermuxActivityListener termuxActivityListener;
+
+// Used by input controls fragments / views
+public static final int OPEN_FILE_REQUEST_CODE = 102;
+protected ControlsProfile profile;
+protected DownloadProgressDialog preloaderDialog;
+protected Callback<Uri> openFileCallback;
+protected Runnable editInputControlsCallback;
+
+protected interface TermuxActivityListener {
+    void onX11PreferenceSwitchChange(boolean isOpen);
+    void releaseSlider(boolean open);
+    void onChangeOrientation(int landscape);
+    void reInstallX11StartScript(Activity activity);
+    void stopDesktop();
+    void openSoftwareKeyboard();
+    void showProcessManager();
+    void changePreference(String key);
+    List<ProcessInfo> collectProcessorInfo(String tag);
+    void onExitApp();
+}
+
+
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    prefs = new Prefs(this);
+
+    if (isSettingsActivity()) {
+        getSupportFragmentManager().beginTransaction()
+                .replace(android.R.id.content, new LoriePreferenceFragment(null))
+                .commit();
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.setDisplayHomeAsUpEnabled(true);
             actionBar.setHomeButtonEnabled(true);
         }
-
-        Uri ENABLED_ACCESSIBILITY_SERVICES = Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        Uri ACCESSIBILITY_ENABLED = Settings.Secure.getUriFor(Settings.Secure.ACCESSIBILITY_ENABLED);
-
-        getContentResolver().registerContentObserver(ENABLED_ACCESSIBILITY_SERVICES, true, accessibilityObserver);
-        getContentResolver().registerContentObserver(ACCESSIBILITY_ENABLED, true, accessibilityObserver);
     }
+
+    Uri ENABLED_ACCESSIBILITY_SERVICES = Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+    Uri ACCESSIBILITY_ENABLED = Settings.Secure.getUriFor(Settings.Secure.ACCESSIBILITY_ENABLED);
+    getContentResolver().registerContentObserver(ENABLED_ACCESSIBILITY_SERVICES, true, accessibilityObserver);
+    getContentResolver().registerContentObserver(ACCESSIBILITY_ENABLED, true, accessibilityObserver);
+}
+
+protected boolean isSettingsActivity() {
+    return true;   // MainActivity overrides this to return false
+}
+
+
 
     @SuppressLint("WrongConstant")
     @Override
@@ -172,7 +237,7 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
 
     private void showFragment(PreferenceFragmentCompat fragment) {
         getSupportFragmentManager().beginTransaction()
-                .setCustomAnimations(R.anim.slide_in_right, R.anim.slide_out_left, R.anim.slide_in_left, R.anim.slide_out_right)
+             //   .setCustomAnimations(R.anim.slide_in_right, R.anim.slide_out_left, R.anim.slide_in_left, R.anim.slide_out_right)
                 .replace(android.R.id.content, fragment)
                 .addToBackStack(null)
                 .commit();
@@ -233,7 +298,7 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
         @SuppressLint("DiscouragedApi")
         int findId(String name) {
             //noinspection DataFlowIssue
-            return getResources().getIdentifier("lorie_pref_" + name, "string", getContext().getPackageName());
+            return getResources().getIdentifier("pref_" + name, "string", getContext().getPackageName());
         }
 
         /** @noinspection DataFlowIssue*/
@@ -272,10 +337,10 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
             with("showAdditionalKbd", p -> p.setLayoutResource(R.layout.preference));
             with("version", p -> p.setSummary(BuildConfig.VERSION_NAME));
 
-            setSummary("displayStretch", R.string.lorie_pref_summary_requiresExactOrCustom);
-            setSummary("adjustResolution", R.string.lorie_pref_summary_requiresExactOrCustom);
-            setSummary("pauseKeyInterceptingWithEsc", R.string.lorie_pref_summary_requiresIntercepting);
-            setSummary("scaleTouchpad", R.string.lorie_pref_summary_requiresTrackpadAndNative);
+            setSummary("displayStretch", R.string.pref_summary_requiresExactOrCustom);
+            setSummary("adjustResolution", R.string.pref_summary_requiresExactOrCustom);
+            setSummary("pauseKeyInterceptingWithEsc", R.string.pref_summary_requiresIntercepting);
+            setSummary("scaleTouchpad", R.string.pref_summary_requiresTrackpadAndNative);
 
             if (!SamsungDexUtils.available())
                 setVisible("dexMetaKeyCapture", false);
@@ -888,4 +953,146 @@ public class LoriePreferences extends AppCompatActivity implements PreferenceFra
             return preferences == secondaryDisplayPreferences;
         }
     }
+    
+    // Delegation to listener
+public void installX11ServerBridge() {
+    if (termuxActivityListener != null)
+        termuxActivityListener.reInstallX11StartScript(this);
+}
+
+public void stopDesktop() {
+    if (termuxActivityListener != null)
+        termuxActivityListener.stopDesktop();
+}
+
+public void openPreference(boolean open) {
+    if (termuxActivityListener != null)
+        termuxActivityListener.onX11PreferenceSwitchChange(open);
+}
+
+public void releaseSlider(boolean release) {
+    if (termuxActivityListener != null)
+        termuxActivityListener.releaseSlider(release);
+}
+
+// Input‑control helpers
+
+    public void showInputControlsDialog() {
+    
+        final ContentDialog dialog = new ContentDialog(MainActivity.getInstance(), R.layout.input_controls_dialog);
+        dialog.setTitle(R.string.input_controls);
+        dialog.setIcon(R.drawable.icon_input_controls);
+
+        final Spinner sProfile = dialog.findViewById(R.id.SProfile);
+        Runnable loadProfileSpinner = () -> {
+            ArrayList<ControlsProfile> profiles = inputControlsManager.getProfiles();
+            ArrayList<String> profileItems = new ArrayList<>();
+            int selectedPosition = 0;
+            profileItems.add("-- " + getString(R.string.disabled) + " --");
+            for (int i = 0; i < profiles.size(); i++) {
+                ControlsProfile profile = profiles.get(i);
+                if (profile == inputControlsView.getProfile()) selectedPosition = i + 1;
+                profileItems.add(profile.getName());
+            }
+
+            sProfile.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, profileItems));
+            sProfile.setSelection(selectedPosition);
+        };
+        loadProfileSpinner.run();
+
+        final CheckBox cbLockCursor = dialog.findViewById(R.id.CBLockCursor);
+        cbLockCursor.setChecked(xServer.cursorLocker.isEnabled());
+
+        final CheckBox cbEnableTouchScreen = dialog.findViewById(R.id.CBTouchScreen);
+
+        final CheckBox cbShowTouchscreenControls = dialog.findViewById(R.id.CBShowTouchscreenControls);
+        cbShowTouchscreenControls.setChecked(inputControlsView.isShowTouchscreenControls());
+
+        dialog.findViewById(R.id.BTSettings).setOnClickListener((v) -> {
+            int position = sProfile.getSelectedItemPosition();
+            Intent intent = new Intent(this, InputControllerActivity.class);
+            intent.putExtra("edit_input_controls", true);
+            intent.putExtra("selected_profile_id", position > 0 ? inputControlsManager.getProfiles().get(position - 1).id : 0);
+            editInputControlsCallback = () -> {
+                hideInputControls();
+                inputControlsManager.loadProfiles(true);
+                loadProfileSpinner.run();
+            };
+            startActivityForResult(intent, InputControllerActivity.EDIT_INPUT_CONTROLS_REQUEST_CODE);
+        });
+
+        dialog.setOnConfirmCallback(() -> {
+            if (termuxActivityListener == null) {
+            Log.e("controls", "Failed to show control activity null");
+                return;
+            }
+            xServer.cursorLocker.setEnabled(cbLockCursor.isChecked() ? true : false);
+            inputControlsView.setShowTouchscreenControls(cbShowTouchscreenControls.isChecked());
+            int position = sProfile.getSelectedItemPosition();
+            if (position > 0) {
+                if (cbEnableTouchScreen.isChecked()) {
+                    touchpadView.setTouchMode(TouchpadView.TouchMode.TOUCH_SCREEN);
+                } else {
+                    touchpadView.setTouchMode(TouchpadView.TouchMode.TRACK_PAD);
+                }
+                showInputControls(inputControlsManager.getProfiles().get(position - 1));
+            } else {
+                hideInputControls();
+            }
+        });
+
+        if (isActivityValid()) {        
+  
+    dialog.show();
+}
+    }
+
+protected void showInputControls(ControlsProfile p) {
+    inputControlsView.setVisibility(View.VISIBLE);
+    inputControlsView.requestFocus();
+    inputControlsView.setProfile(p);
+    if (profile != null)
+        touchpadView.setSensitivity(profile.getCursorSpeed() * globalCursorSpeed);
+    touchpadView.setVisibility(View.VISIBLE);
+    inputControlsView.invalidate();
+    if (termuxActivityListener != null)
+        termuxActivityListener.onX11PreferenceSwitchChange(false);
+}
+
+public void hideInputControls() {
+    inputControlsView.setShowTouchscreenControls(true);
+    inputControlsView.setVisibility(View.GONE);
+    inputControlsView.setProfile(null);
+    touchpadView.setVisibility(View.GONE);
+    inputControlsView.invalidate();
+}
+
+// Bridge methods used by other classes
+public List<ProcessInfo> getTermuxProcessorInfo(String tag) {
+    if (termuxActivityListener != null)
+        return termuxActivityListener.collectProcessorInfo(tag);
+    return new ArrayList<>();
+}
+
+public DownloadProgressDialog getPreloaderDialog() {
+    return preloaderDialog;
+}
+
+public void setOpenFileCallback(Callback<Uri> callback) {
+    this.openFileCallback = callback;
+}
+
+public boolean isActivityValid() {
+    return !isFinishing() && !isDestroyed();
+}
+
+public WinHandler getWinHandler() {
+    return winHandler;
+}
+
+public InputControlsView getInputControlsView() {
+    return inputControlsView;
+}
+    
+    
 }

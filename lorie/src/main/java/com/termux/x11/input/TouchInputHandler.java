@@ -832,7 +832,7 @@ public class TouchInputHandler {
 
             if (e.getScanCode() == KEY_BACK && e.getDevice().getKeyboardType() != KEYBOARD_TYPE_ALPHABETIC || e.getScanCode() == 0) {
                 backButtonAction.accept(k, e.getAction() == KeyEvent.ACTION_DOWN);
-                return true;
+                return false;
             }
         }
 
@@ -979,6 +979,7 @@ public class TouchInputHandler {
                 tiltY = (int) Math.round((float) Math.asin( Math.cos(orientation) * Math.sin(tilt)) * 63.5 - 0.5);
             }
 
+            android.util.Log.d("STYLUS_EVENT", "action " + action + " x " + newX + " y " + newY + " pressure " + e.getPressure() + " tilt " + e.getAxisValue(MotionEvent.AXIS_TILT) + " orientation " + e.getAxisValue(MotionEvent.AXIS_ORIENTATION) + " buttonState " + e.getButtonState() + " extractedButtons " + newButtons);
             mInjector.sendStylusEvent(
                     x = newX,
                     y = newY,

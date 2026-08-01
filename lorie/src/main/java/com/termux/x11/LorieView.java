@@ -1,5 +1,19 @@
 package com.termux.x11;
 
+//////// new
+import android.view.MotionEvent;
+import android.view.InputDevice;
+import static android.view.InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+import static android.view.KeyEvent.KEYCODE_BACK;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import android.view.InputDevice;
+import com.termux.x11.controller.core.CursorLocker;
+import com.termux.x11.controller.winhandler.WinHandler;
+import com.termux.x11.controller.xserver.InputDeviceManager;
+import com.termux.x11.controller.xserver.Keyboard;
+import com.termux.x11.controller.xserver.Pointer;
+import com.termux.x11.controller.xserver.XKeycode;
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ClipData;
@@ -72,6 +86,54 @@ import dalvik.annotation.optimization.FastNative;
 public class LorieView extends SurfaceView implements InputStub {
     private static int rendererZoom = 100;
     private static final Rect NO_INSETS = new Rect();
+    private int obscuredBottom = 0;   
+    public final Keyboard keyboard = Keyboard.createKeyboard(this);
+    public final Pointer pointer = new Pointer(this);
+    final public InputDeviceManager inputDeviceManager = new InputDeviceManager(this);
+    public ScreenInfo screenInfo;
+    public CursorLocker cursorLocker;
+    public WinHandler winHandler;
+
+// new
+    public void setWinHandler(WinHandler handler) {
+        this.winHandler = handler;
+    }
+
+    public WinHandler getWinHandler() {
+        return winHandler;
+    }
+
+
+@Override
+public boolean onGenericMotionEvent(MotionEvent event) {
+    if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
+        float vScroll = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
+        float hScroll = event.getAxisValue(MotionEvent.AXIS_HSCROLL);
+
+        if (vScroll != 0 || hScroll != 0) {
+            if (vScroll > 0) {
+                injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_UP);
+                injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_UP);
+            } else if (vScroll < 0) {
+                injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_DOWN);
+                injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_DOWN);
+            }
+
+            if (hScroll > 0) {
+                injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_CLICK_RIGHT);
+                injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_CLICK_RIGHT);
+            } else if (hScroll < 0) {
+                injectPointerButtonPress(Pointer.Button.BUTTON_SCROLL_CLICK_LEFT);
+                injectPointerButtonRelease(Pointer.Button.BUTTON_SCROLL_CLICK_LEFT);
+            }
+
+            return true;
+        }
+    }
+
+    return super.onGenericMotionEvent(event);
+}
+
 
     public interface Callback {
         void inputTransformChanged(int screenWidth, int screenHeight, Matrix inputTransform);
@@ -87,11 +149,10 @@ public class LorieView extends SurfaceView implements InputStub {
     private static boolean hardwareKbdScancodesWorkaround = false;
     private final InputMethodManager mIMM = (InputMethodManager)getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
     private Callback mCallback;
-    private final Point p = new Point();
+    public final Point p = new Point();
     private final Rect contentInsets = new Rect();
     private final Rect viewport = new Rect();
     private final Rect inputViewport = new Rect();
-    private int obscuredBottom = 0;
     private final Matrix inputTransform = new Matrix();
     private float inputSourceLeft = 0.f, inputSourceTop = 0.f;
     private float inputSourceWidth = 0.f, inputSourceHeight = 0.f;
@@ -329,7 +390,8 @@ public class LorieView extends SurfaceView implements InputStub {
         getHolder().addCallback(mSurfaceCallback);
         clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
         nativeInit();
-
+       screenInfo = new ScreenInfo(this);
+        cursorLocker = new CursorLocker(this);
         setFocusable(true);
         setFocusableInTouchMode(true);
 
@@ -459,8 +521,8 @@ public class LorieView extends SurfaceView implements InputStub {
     public Rational getScreenAspectRatio() {
         return p.x == 0 || p.y == 0 ? null : new Rational(p.x, p.y);
     }
-
-    /** Height of the picture the soft keyboard covers instead of the picture being shrunk for it. */
+    
+        /** Height of the picture the soft keyboard covers instead of the picture being shrunk for it. */
     public void setObscuredBottom(int height) {
         if (obscuredBottom == height)
             return;
@@ -503,7 +565,6 @@ public class LorieView extends SurfaceView implements InputStub {
             else
                 drawH = drawW * p.y / p.x;
         }
-
         // The picture keeps its size when the soft keyboard covers the bottom, it is just centered
         // in what is left visible, and only what still does not fit there is left to be scrolled.
         int visibleH = Math.max(0, availableH - obscuredBottom);
@@ -590,6 +651,49 @@ public class LorieView extends SurfaceView implements InputStub {
         setClipboardSyncEnabled(clipboardSyncEnabled, clipboardSyncEnabled);
         TouchInputHandler.refreshInputDevices();
     }
+
+///  touch controls 
+public void injectPointerMove(int x, int y) {
+    pointer.moveTo(x, y);
+}
+
+public void injectPointerMoveDelta(int dx, int dy) {
+    pointer.moveDelta(dx, dy);
+}
+
+public void injectPointerButtonPress(Pointer.Button buttonCode) {
+    pointer.setButton(buttonCode, true);
+}
+
+public void injectPointerButtonRelease(Pointer.Button buttonCode) {
+    pointer.setButton(buttonCode, false);
+}
+
+public void injectKeyPress(XKeycode xKeycode) {
+    injectKeyPress(xKeycode, 0);
+}
+
+public void injectKeyPress(XKeycode xKeycode, int keysym) {
+    keyboard.setKeyPress(xKeycode.id, keysym);
+}
+
+public void injectKeyRelease(XKeycode xKeycode) {
+    keyboard.setKeyRelease(xKeycode.id);
+}
+
+public void injectText(String text) {
+    if (text.isEmpty()) return;
+    sendTextEvent(text.getBytes());
+}
+
+public boolean isFullscreen() {
+    return MainActivity.getPrefs().fullscreen.get();
+}
+
+public void regenerate() {
+    updateViewport();
+}
+
 
     // It is used in native code
     void setClipboardText(String text) {
