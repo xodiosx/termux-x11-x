@@ -1538,7 +1538,7 @@ protected boolean isSettingsActivity() {
         NotificationCompat.Builder builder =  new NotificationCompat.Builder(this, getNotificationChannel(mNotificationManager))
                 .setContentTitle("Termux:X11")
                 .setSmallIcon(R.drawable.ic_x11_icon)
-                .setContentText(getResources().getText(R.string.lorie_notification_content_text))
+                .setContentText(getResources().getText(R.string.notification_content_text))
                 .setOngoing(true)
                 .setPriority(Notification.PRIORITY_MAX)
                 .setSilent(true)
@@ -1548,8 +1548,8 @@ protected boolean isSettingsActivity() {
     }
 
     private String getNotificationChannel(NotificationManager notificationManager){
-        String channelId = getResources().getString(R.string.lorie_app_name);
-        String channelName = getResources().getString(R.string.lorie_app_name);
+        String channelId = getResources().getString(R.string.app_name);
+        String channelName = getResources().getString(R.string.app_name);
         NotificationChannel channel = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH);
         channel.setImportance(NotificationManager.IMPORTANCE_HIGH);
         channel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
