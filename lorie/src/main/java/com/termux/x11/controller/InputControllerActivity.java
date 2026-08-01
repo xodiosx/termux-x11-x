@@ -10,7 +10,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
 
-import app.xodos2.R;
+import com.termux.x11.R;
 import com.termux.x11.controller.core.Callback;
 import com.termux.x11.controller.core.PreloaderDialog;
 

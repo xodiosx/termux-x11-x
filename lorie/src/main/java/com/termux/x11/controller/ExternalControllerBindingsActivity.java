@@ -26,7 +26,7 @@ import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import app.xodos2.R;
+import com.termux.x11.R;
 import com.termux.x11.controller.core.AppUtils;
 import com.termux.x11.controller.inputcontrols.Binding;
 import com.termux.x11.controller.inputcontrols.ControlsProfile;

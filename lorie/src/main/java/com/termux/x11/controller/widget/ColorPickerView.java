@@ -20,7 +20,7 @@ import android.widget.PopupWindow;
 import androidx.annotation.Nullable;
 
 import com.termux.x11.MainActivity;
-import app.xodos2.R;
+import com.termux.x11.R;
 import com.termux.x11.controller.ControlsEditorActivity;
 import com.termux.x11.controller.core.AppUtils;
 import com.termux.x11.controller.core.UnitUtils;

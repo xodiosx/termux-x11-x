@@ -20,8 +20,8 @@ import com.termux.x11.controller.winhandler.WinHandler;
 import java.util.List;
 
 // *** Replace the existing R/BuildConfig references with these ***
-import app.xodos2.R;
-import app.xodos2.BuildConfig;
+import com.termux.x11.R;
+import com.termux.x11.BuildConfig;
 
 
 import static android.Manifest.permission.POST_NOTIFICATIONS;

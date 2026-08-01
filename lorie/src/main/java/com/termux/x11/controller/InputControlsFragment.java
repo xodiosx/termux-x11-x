@@ -29,7 +29,7 @@ import androidx.core.widget.ImageViewCompat;
 import androidx.fragment.app.Fragment;
 
 import com.termux.x11.MainActivity;
-import app.xodos2.R;
+import com.termux.x11.R;
 import com.termux.x11.controller.contentdialog.ContentDialog;
 import com.termux.x11.controller.core.AppUtils;
 import com.termux.x11.controller.core.Callback;

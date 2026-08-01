@@ -8,7 +8,7 @@ import android.view.WindowManager;
 import android.widget.TextView;
 
 import com.google.android.material.progressindicator.CircularProgressIndicator;
-import app.xodos2.R;
+import com.termux.x11.R;
 import com.termux.x11.controller.math.Mathf;
 
 

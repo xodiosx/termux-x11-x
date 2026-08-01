@@ -10,7 +10,7 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
-import app.xodos2.R;
+import com.termux.x11.R;
 import java.util.Arrays;
 import java.util.List;
 

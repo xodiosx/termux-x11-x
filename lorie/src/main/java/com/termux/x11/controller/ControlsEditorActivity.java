@@ -26,7 +26,7 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-import app.xodos2.R;
+import com.termux.x11.R;
 import com.termux.x11.controller.core.AppUtils;
 import com.termux.x11.controller.core.FileUtils;
 import com.termux.x11.controller.core.UnitUtils;
