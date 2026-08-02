@@ -34,7 +34,7 @@
         for more info.
     </string>
     <string name="action_grant_display_over_other_apps_permission">Grant Draw Over Apps Permission</string>
-
+    <string name="ignoreGamepadEvents">Ignore gamepad input events</string>
     <string name="action_already_granted">Already Granted</string>
     <string name="action_already_disabled">Already Disabled</string>
     <string name="not_connected">Not connected</string>
