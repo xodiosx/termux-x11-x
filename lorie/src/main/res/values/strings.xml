@@ -37,7 +37,7 @@
     <string name="ignoreGamepadEvents">Ignore gamepad input events</string>
     <string name="ignoreGamepadEvents_summary">Prevent gamepad and joystick events from being forwarded to X server</string>
     <string name="pref_ignoreGamepadEvents">Ignore gamepad input events</string>
-    <string name="pref_ignoreGamepadEvents_summary">Prevent gamepad and joystick events from being forwarded to X server</string>
+    <string name="lpref_ignoreGamepadEvents_summary">Prevent gamepad and joystick events from being forwarded to X server</string>
     
     <string name="action_already_granted">Already Granted</string>
     <string name="action_already_disabled">Already Disabled</string>
@@ -442,10 +442,10 @@ E.g. <b>META</b> for <i>META key</i>, \n
 <string name="pref_enable_hud_summary">Show system monitor overlay on X11</string>
 
 
-<string name="pref_main">Main</string>
-<string name="pref_output">Output</string>
-<string name="pref_pointer">Pointer</string>
-<string name="pref_kbd">Keyboard</string>
-<string name="pref_other">Other</string>
-<string name="pref_version">Version</string>
+<string name="lorie_pref_main">Main</string>
+<string name="lorie_pref_output">Output</string>
+<string name="lorie_pref_pointer">Pointer</string>
+<string name="lorie_pref_kbd">Keyboard</string>
+<string name="lorie_pref_other">Other</string>
+<string name="lorie_pref_version">Version</string>
 </resources>
