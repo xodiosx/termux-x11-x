@@ -35,6 +35,10 @@
     </string>
     <string name="action_grant_display_over_other_apps_permission">Grant Draw Over Apps Permission</string>
     <string name="ignoreGamepadEvents">Ignore gamepad input events</string>
+    <string name="ignoreGamepadEvents_summary">Prevent gamepad and joystick events from being forwarded to X server</string>
+    <string name="lorie_pref_ignoreGamepadEvents">Ignore gamepad input events</string>
+    <string name="lorie_pref_ignoreGamepadEvents_summary">Prevent gamepad and joystick events from being forwarded to X server</string>
+    
     <string name="action_already_granted">Already Granted</string>
     <string name="action_already_disabled">Already Disabled</string>
     <string name="not_connected">Not connected</string>
